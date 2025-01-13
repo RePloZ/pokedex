@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/mtslzr/pokeapi-go"
 )
 
 type cliCommand struct {
@@ -12,6 +14,8 @@ type cliCommand struct {
 	description string
 	callback    func() error
 }
+
+var mapIndex int = 0
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -45,6 +49,16 @@ func getCommands() map[string]cliCommand {
 			description: "Displays a help message",
 			callback:    commandHelp,
 		},
+		"map": {
+			name:        "map",
+			description: "Display the name of the 20 next location areas in the Pokemon world",
+			callback:    commandMap,
+		},
+		"mapb": {
+			name:        "mapb",
+			description: "Display the name of the 20 previous location areas in the Pokemon world",
+			callback:    commandMapB,
+		},
 	}
 }
 
@@ -68,4 +82,25 @@ func commandExit() error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
+}
+
+func commandMap() error {
+	locationArea, err := pokeapi.Resource("location-area", mapIndex*20)
+
+	for _, result := range locationArea.Results {
+		fmt.Printf("%v \n", result.Name)
+	}
+
+	mapIndex++
+	return err
+}
+
+func commandMapB() error {
+	mapIndex--
+	locationArea, err := pokeapi.Resource("location-area", mapIndex*20)
+	for _, result := range locationArea.Results {
+		fmt.Printf("%v \n", result.Name)
+	}
+
+	return err
 }
