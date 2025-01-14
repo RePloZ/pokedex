@@ -86,9 +86,8 @@ func cleanInput(text string) []string {
 }
 
 func commandHelp(args []string) error {
-	fmt.Println(`Welcome to the Pokedex!
-Usage:
-`)
+	fmt.Println("Welcome to the Pokedex!")
+	fmt.Println("Usage:")
 
 	commands := getCommands()
 	for _, command := range commands {
