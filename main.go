@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 
@@ -12,10 +13,12 @@ import (
 type cliCommand struct {
 	name        string
 	description string
-	callback    func() error
+	callback    func(args []string) error
 }
 
 var mapIndex int = 0
+
+var catchedPokemon map[string]string = make(map[string]string, 0)
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -25,13 +28,9 @@ func main() {
 		scanner.Scan()
 		input := scanner.Text()
 		cleanText := cleanInput(input)
-		//fmt.Printf("Your command was: %v\n", cleanText[0])
-
 		commands := getCommands()
-		for _, command := range commands {
-			if command.name == cleanText[0] {
-				command.callback()
-			}
+		if command, exists := commands[cleanText[0]]; exists {
+			command.callback(cleanText[1:])
 		}
 	}
 
@@ -59,6 +58,26 @@ func getCommands() map[string]cliCommand {
 			description: "Display the name of the 20 previous location areas in the Pokemon world",
 			callback:    commandMapB,
 		},
+		"explore": {
+			name:        "explore",
+			description: "Explore pokemon in a given location",
+			callback:    commandExplore,
+		},
+		"catch": {
+			name:        "catch",
+			description: "cath the given name pokemon",
+			callback:    commandCatch,
+		},
+		"inspect": {
+			name:        "inspect",
+			description: "Show the information of a given pokemon name",
+			callback:    commandInspect,
+		},
+		"pokedex": {
+			name:        "pokedex",
+			description: "Show a list of all the names of the captured pokemon",
+			callback:    commandPokedex,
+		},
 	}
 }
 
@@ -66,7 +85,7 @@ func cleanInput(text string) []string {
 	return strings.Fields(strings.ToLower(text))
 }
 
-func commandHelp() error {
+func commandHelp(args []string) error {
 	fmt.Println(`Welcome to the Pokedex!
 Usage:
 `)
@@ -78,29 +97,97 @@ Usage:
 	return nil
 }
 
-func commandExit() error {
+func commandExit(args []string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandMap() error {
+func commandMap(args []string) error {
 	locationArea, err := pokeapi.Resource("location-area", mapIndex*20)
+	if err != nil {
+		return err
+	}
 
 	for _, result := range locationArea.Results {
 		fmt.Printf("%v \n", result.Name)
 	}
 
 	mapIndex++
-	return err
+	return nil
 }
 
-func commandMapB() error {
+func commandMapB(args []string) error {
 	mapIndex--
 	locationArea, err := pokeapi.Resource("location-area", mapIndex*20)
+	if err != nil {
+		return err
+	}
+
 	for _, result := range locationArea.Results {
 		fmt.Printf("%v \n", result.Name)
 	}
 
 	return err
+}
+
+func commandExplore(args []string) error {
+	locationArea, err := pokeapi.LocationArea(args[0])
+	if err != nil {
+		return err
+	}
+
+	for _, pokemon := range locationArea.PokemonEncounters {
+		fmt.Printf("%v \n", pokemon.Pokemon.Name)
+	}
+	return nil
+}
+
+func commandCatch(args []string) error {
+	pokemonName := args[0]
+	pokemon, err := pokeapi.Pokemon(pokemonName)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Throwing a Pokeball at %v...\n", pokemon.Name)
+	if pokemon.BaseExperience > rand.Intn(100) {
+		fmt.Printf("%v escaped!\n", pokemon.Name)
+		return nil
+	}
+	catchedPokemon[pokemon.Name] = pokemon.Name
+	fmt.Printf("%v was caught!\n", pokemon.Name)
+	return nil
+}
+
+func commandInspect(args []string) error {
+	pokemonName := args[0]
+	if _, exists := catchedPokemon[pokemonName]; !exists {
+		fmt.Println("you have not caught that pokemon")
+		return nil
+	}
+	pokemon, err := pokeapi.Pokemon(pokemonName)
+	if err != nil {
+		return err
+	}
+	//pokemonTypes, err
+	fmt.Printf("Name: %v\n", pokemon.Name)
+	fmt.Printf("Height: %v\n", pokemon.Height)
+	fmt.Printf("Weight: %v\n", pokemon.Weight)
+	fmt.Println("Stats: ")
+	for _, stat := range pokemon.Stats {
+		fmt.Printf("  -%v: %v\n", stat.Stat.Name, stat.BaseStat)
+	}
+	fmt.Println("Types: ")
+	for _, types := range pokemon.Types {
+		fmt.Printf("  - %v\n", types.Type.Name)
+	}
+	return nil
+}
+
+func commandPokedex(args []string) error {
+	fmt.Println("Your Pokedex: ")
+	for _, pokemon := range catchedPokemon {
+		fmt.Printf("  - %v\n", pokemon)
+	}
+	return nil
 }
